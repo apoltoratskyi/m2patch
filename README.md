@@ -1,4 +1,4 @@
-# M2 patch create tool
+# M2 patch generation tool
 ## Usage:
 ```sh
  php m2patch.php 2.1.6 MDVA-666 
