@@ -69,7 +69,7 @@ if ($mode == 'git') {
     $diffCE = $isBranchExistInCE ? shell_exec("git diff $diffA $diffB") : '';
     $diffEE = $isBranchExistInEE ? shell_exec("cd ./magento2ee && git diff $diffA $diffB") : '';
     $diff = $diffCE . $diffEE;
-    $patchName = "{$diffB}_{$diffA}_v$version";
+    $patchName = "{$diffB}_EE_{$diffA}_v$version";
 } elseif ($mode == 'file') {
     $diff = file_get_contents($patchFile);
     $withoutPrefixPatterns = array(
@@ -84,7 +84,7 @@ if ($mode == 'git') {
         return "{$matches[1]} {$prefix}{$matches[2]}";
     }, $diff);
     $diffB = $argv[2];
-    $patchName = "{$diffB}_v$version";
+    $patchName = "{$diffB}_EE_v$version";
 }
 
 if ($diff) {
