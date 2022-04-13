@@ -162,7 +162,7 @@ if ($mode == 'git') {
         if ($isBranchExist) {
             exec("cd $repoPath'/'$repo && git pull origin");
             $diffRepo = shell_exec("cd $repoPath'/'$repo && git diff $mVersion $diffB");
-            $commit = (explode ("\n", shell_exec("cd $repoPath'/'$repo && git log --pretty=format:\"%h - %s\"|grep $diffB")));
+            $commit = (explode ("\n", shell_exec("cd $repoPath'/'$repo && git log --pretty=format:\"%h - %s\"|grep 'MDVA-[0-9]'")));
             $commits[$repo] = $commit;
 
 
