@@ -142,6 +142,7 @@ foreach ($repositories as [$repo, $path]){
 
 $diffAll = NULL;
 $results = array();
+$commits = array();
 if ($mode == 'git') {
     $diffA = $argv[1];
     $diffB = $argv[2];
@@ -161,7 +162,10 @@ if ($mode == 'git') {
         if ($isBranchExist) {
             exec("cd $repoPath'/'$repo && git pull origin");
             $diffRepo = shell_exec("cd $repoPath'/'$repo && git diff $mVersion $diffB");
-            array_push($results, "Changes from --- $repo --- included");
+            $commit = (explode ("\n", shell_exec("cd $repoPath'/'$repo && git log --pretty=format:\"%h - %s\"|grep $diffB")));
+            $commits[$repo] = $commit;
+
+
         } else {
             $diffRepo = '';
         }
@@ -179,9 +183,14 @@ if ($mode == 'git') {
     file_put_contents('./' . $patchGitFilename, $diffAll);
     $diffComposer = shell_exec( "convert-for-composer.php $patchGitFilename > $patchComposerFilename");
 
+
     echo "\n";
     echo "######################################################################\n";
-    print(implode("\n",$results));
+    echo "\n";
+    echo "Number of files changed:";
+    echo substr_count($diffAll,"diff");
+    echo "\n";
+    echo json_encode($commits, JSON_PRETTY_PRINT);
     echo "\n";
     echo "######################################################################\n";
     echo "# Patches $patchGitFilename and $patchComposerFilename are generated\n";
