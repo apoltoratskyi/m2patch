@@ -125,7 +125,7 @@ if (!preg_match('/\d+\.\d+\.\d+/', $argv[1]) && file_exists($patchFile)) {
     $mode = 'file';
 }
 
-$version = !empty($argv[3]) && preg_match('/\d+/', $argv[3], $matches) ? (int)$matches[0] : 1;
+$version = !empty($argv[3]) && preg_match('/\d+/', $argv[3], $matches) ? (int)$matches[0] : 0;
 
 
 //create repo dir
@@ -174,12 +174,16 @@ if ($mode == 'git') {
         $diffAll .= $diffRepo;
     }
 
-    $patchName = "{$diffBNoSuffix}_{$diffA}_v$version";
+    if ($version) {
+        $patchName = "{$diffBNoSuffix}_{$diffA}_v$version";
+    } else {
+        $patchName = "{$diffBNoSuffix}_{$diffA}";
+    }
     $patchGitFilename = $patchName . '.git.patch';
     $patchComposerFilename = $patchName . '.patch';
 
     file_put_contents('./' . $patchGitFilename, $diffAll);
-    $diffComposer = shell_exec( "convert-for-composer.php $patchGitFilename > $patchComposerFilename");
+    $diffComposer = shell_exec( "convert-for-composer.php $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
 
 
     echo "\n";
@@ -191,7 +195,7 @@ if ($mode == 'git') {
     echo json_encode($commits, JSON_PRETTY_PRINT);
     echo "\n";
     echo "######################################################################\n";
-    echo "# Patches $patchGitFilename and $patchComposerFilename are generated\n";
+    echo "# Patch $patchComposerFilename generated\n";
     echo "######################################################################\n";
 } else {
     echo "\n";
