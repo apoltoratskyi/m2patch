@@ -174,9 +174,9 @@ if ($mode == 'git') {
         $diffAll .= $diffRepo;
     }
 
-    $patchName = "{$diffBNoSuffix}_EE_{$diffA}_v$version";
-    $patchGitFilename = $patchName . '.patch';
-    $patchComposerFilename = $patchName . '.composer.patch';
+    $patchName = "{$diffBNoSuffix}_{$diffA}_v$version";
+    $patchGitFilename = $patchName . '.git.patch';
+    $patchComposerFilename = $patchName . '.patch';
 
     file_put_contents('./' . $patchGitFilename, $diffAll);
     $diffComposer = shell_exec( "convert-for-composer.php $patchGitFilename > $patchComposerFilename");
