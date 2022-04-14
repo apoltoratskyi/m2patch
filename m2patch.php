@@ -146,6 +146,8 @@ $commits = array();
 if ($mode == 'git') {
     $diffA = $argv[1];
     $diffB = $argv[2];
+    preg_match("/MDVA-[0-9]*/", $diffB, $match);
+    $diffBNoSuffix = $match[0];
 
     foreach ($repositories as [$repo, $path]) {
 
@@ -162,7 +164,7 @@ if ($mode == 'git') {
         if ($isBranchExist) {
             exec("cd $repoPath'/'$repo && git pull origin");
             $diffRepo = shell_exec("cd $repoPath'/'$repo && git diff $mVersion $diffB");
-            $commit = (explode ("\n", shell_exec("cd $repoPath'/'$repo && git log --pretty=format:\"%h - %s\"|grep 'MDVA-[0-9]'")));
+            $commit = (explode ("\n", shell_exec("cd $repoPath'/'$repo && git log --pretty=format:\"%h - %s\"|grep $diffBNoSuffix")));
             $commits[$repo] = $commit;
 
 
@@ -172,11 +174,7 @@ if ($mode == 'git') {
         $diffAll .= $diffRepo;
     }
 
-    $patchName = "{$diffB}_EE_{$diffA}_v$version";
-
-    //remove 'AUTO_xxx' suffix
-    $patchName = preg_replace('/_AUTO_\d{1,}/', '', $patchName);
-
+    $patchName = "{$diffBNoSuffix}_EE_{$diffA}_v$version";
     $patchGitFilename = $patchName . '.patch';
     $patchComposerFilename = $patchName . '.composer.patch';
 
