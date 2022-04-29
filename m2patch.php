@@ -136,7 +136,7 @@ if (!file_exists($repoPath)) {
 foreach ($repositories as [$repo, $path]){
     if (!file_exists("$repoPath/$repo")) {
         mkdir("$repoPath/$repo", 0777, true);
-        exec("git clone $path $repoPath/$repo");
+        exec("git clone $path $repoPath/$repo >> ./output.log 2>&1");
     }
 }
 
@@ -157,12 +157,12 @@ if ($mode == 'git') {
         else{
             $mVersion = $mapping[$repo][$diffA];
         }
-        echo $mVersion;
-        exec("cd $repoPath'/'$repo && git pull origin && git checkout $mVersion");
-        exec("cd $repoPath'/'$repo && git checkout $diffB");
+        echo "Checking $repo repository...".PHP_EOL;
+        exec("cd $repoPath'/'$repo && git pull origin >> ./output.log 2>&1 && git checkout $mVersion >> ./output.log 2>&1 ");
+        exec("cd $repoPath'/'$repo && git checkout $diffB >> ./output.log 2>&1 ");
         $isBranchExist = shell_exec("cd $repoPath'/'$repo && git branch | grep $diffB");
         if ($isBranchExist) {
-            exec("cd $repoPath'/'$repo && git pull origin");
+            exec("cd $repoPath'/'$repo && git pull origin >> ./output.log 2>&1");
             $diffRepo = shell_exec("cd $repoPath'/'$repo && git diff $mVersion $diffB");
             $commit = (explode ("\n", shell_exec("cd $repoPath'/'$repo && git log --pretty=format:\"%h - %s\"|grep $diffBNoSuffix")));
             $commits[$repo] = $commit;
