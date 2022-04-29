@@ -136,7 +136,7 @@ if (!file_exists($repoPath)) {
 foreach ($repositories as [$repo, $path]){
     if (!file_exists("$repoPath/$repo")) {
         mkdir("$repoPath/$repo", 0777, true);
-        exec("git clone $path $repoPath/$repo >> ./output.log 2>&1");
+        exec("git clone $path $repoPath/$repo");
     }
 }
 
@@ -156,6 +156,9 @@ if ($mode == 'git') {
         }
         else{
             $mVersion = $mapping[$repo][$diffA];
+        }
+        if (file_exists("$repoPath'/'$repo/output.log")){
+            unlink("$repoPath'/'$repo/output.log");
         }
         echo "Checking $repo repository...".PHP_EOL;
         exec("cd $repoPath'/'$repo && git pull origin >> ./output.log 2>&1 && git checkout $mVersion >> ./output.log 2>&1 ");
