@@ -116,10 +116,8 @@ $diffA = $diffB = false;
 $script = $argv[0];
 
 $usageHelp = "Usage: \n"
-    . " php $script 2.1.6 MDVA-666 \n"
-    . " php $script 2.1.6 MDVA-666 -v2 \n"
-    . " php $script ./MAGETWO-66666.patch MDVA-666 \n"
-    . " php $script ./MAGETWO-66666.patch MDVA-666 -v2 \n";
+    . " php $script 2.1.6 ACSD-666 \n"
+    . " php $script 2.1.6 ACSD-666 -v2 \n";
 
 if (empty($argv[1]) || empty($argv[2])) {
     exit($usageHelp);
@@ -153,7 +151,7 @@ $commits = array();
 if ($mode == 'git') {
     $diffA = $argv[1];
     $diffB = $argv[2];
-    preg_match("/MDVA-[0-9]*/", $diffB, $match);
+    preg_match("/ACSD-[0-9]*/", $diffB, $match);
     $diffBNoSuffix = $match[0];
 
     foreach ($repositories as [$repo, $path]) {
