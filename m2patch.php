@@ -40,7 +40,7 @@ try {
         ]
     ];
 
-    $issue = $issueService->get('ACSD-48293', $queryParam);
+    $issue = $issueService->get($argv[1], $queryParam);
     $magentoVersion = $issue->fields->versions[0]->name;
     $urls = $issue->fields->customfield_13904;
 
