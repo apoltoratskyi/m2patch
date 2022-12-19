@@ -48,14 +48,16 @@ try {
     print('Error Occured! ' . $e->getMessage());
 }
 
+$patchGitFilename = $argv[1] . "_" . $magentoVersion . ".git.patch";
+$patchComposerFilename = $argv[1] . "_" . $magentoVersion . ".patch";
+
 if (strlen($urls) > 10) {
     $newUrls = convertToGitApi($urls);
     foreach ($newUrls as $newUrl) {
-        file_put_contents($argv[1] . "-" . $magentoVersion . ".git.patch", getPullRequestContent($newUrl), FILE_APPEND);
+        file_put_contents($patchGitFilename, getPullRequestContent($newUrl), FILE_APPEND);
     }
 }
-$patchGitFilename = $argv[1] . "-" . $magentoVersion . ".git.patch";
-$patchComposerFilename = $argv[1] . "-" . $magentoVersion . ".patch";
+
 $patchComposer = shell_exec( "convert-for-composer.php $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
 
 
