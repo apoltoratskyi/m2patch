@@ -6,12 +6,8 @@ use JiraRestApi\Issue\IssueService;
 use JiraRestApi\JiraException;
 
 $PWD = $_SERVER['PWD'];
-//$dotenv = Dotenv::createImmutable(__DIR__);
-//$dotenv->load();
-
 $diffA = $diffB = false;
 $script = $argv[0];
-
 $usageHelp = "Usage: \n"
     . " php $script ACSD-666 \n"
     . " php $script 2.1.6 ACSD-666 -v2 \n";
@@ -55,10 +51,12 @@ try {
 if (strlen($urls) > 10) {
     $newUrls = convertToGitApi($urls);
     foreach ($newUrls as $newUrl) {
-        $trr = $newUrl;
-        file_put_contents($argv[1] . "-" . $magentoVersion . ".patch", getPullRequestContent($newUrl), FILE_APPEND);
+        file_put_contents($argv[1] . "-" . $magentoVersion . ".git.patch", getPullRequestContent($newUrl), FILE_APPEND);
     }
 }
+$patchGitFilename = $argv[1] . "-" . $magentoVersion . ".git.patch";
+$patchComposerFilename = $argv[1] . "-" . $magentoVersion . ".patch";
+$patchComposer = shell_exec( "convert-for-composer.php $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
 
 
 function convertToGitApi($pulls) {
