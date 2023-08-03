@@ -1,5 +1,6 @@
 {
   "require": {
-    "lesstif/php-jira-rest-client": "^5.0"
+    "lesstif/php-jira-rest-client": "^5.0",
+    "vlucas/phpdotenv": "^5.0|^6.0"
   }
 }
