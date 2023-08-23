@@ -3,10 +3,11 @@
 
 define('BASE_PATH',realpath(__DIR__));
 
-const GIT_TOKEN ="";
+const GIT_TOKEN = '';
 const JIRA_HOST="";
 const JIRA_USER="";
 const JIRA_PASS="";
+const TEST_ON_CLOUD = "NO";
 
 $PWD = $_SERVER['PWD'];
 $diffA = $diffB = false;
@@ -125,10 +126,8 @@ if (strlen(getGitUrl($response)) > 10) {
 
 $patchComposer = shell_exec( "m2-convert-for-composer $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
 echo "Patch file:        -----------           " . $patchComposerFilename . "         ---------------            " .  PHP_EOL;
-if ($argv[3] && $argv[3] == "apply") {
-    shell_exec ("patch -p1 < $patchComposerFilename --dry-run");
-}
-if ($argv[4] && $argv[4] == "cloud") {
+
+if (TEST_ON_CLOUD === "YES") {
     $sshLink = sshUrl(getProjectUrl($response), getProjectType($response));
     echo ("Trying to apply the patch to:  $sshLink  ---  ".getProjectType($response)) . PHP_EOL;
     $patchApplicable = shell_exec ("cloud-patchcheck $sshLink $patchComposerFilename");
