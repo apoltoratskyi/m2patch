@@ -15,6 +15,7 @@ $gitPullRequestField = 'customfield_13904';
 $projectPageField = 'customfield_18505';
 $environmentTypeField = 'customfield_17502';
 $gitRepo = 'magento-sparta';
+$pathToConverterForComposer = 'm2-convert-for-composer';
 
 $PWD = $_SERVER['PWD'];
 $diffA = $diffB = false;
@@ -130,7 +131,7 @@ if (strlen(getGitUrl($response,$gitPullRequestField)) > 10) {
     }
 }
 
-$patchComposer = shell_exec( "m2-convert-for-composer $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
+$patchComposer = shell_exec( "$pathToConverterForComposer $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
 echo "Patch file:        -----------           " . $patchComposerFilename . "         ---------------            " .  PHP_EOL;
 
 if ($envVariables['TEST_ON_CLOUD'] === "YES") {
