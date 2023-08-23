@@ -1,124 +1,135 @@
 #!/usr/bin/env php
 <?php
 
-function replaceCallback($matches)
-{
-    global $replaceMap;
-    if (empty($matches[1]) || empty($matches[2])) {
-        return $matches[0];
-    }
+define('BASE_PATH',realpath(__DIR__));
 
-    if (preg_match('/app\/design/', $matches[1])) {
-        $a = 0;
-    }
+const GIT_TOKEN = '';
+const JIRA_HOST="";
+const JIRA_USER="";
+const JIRA_PASS="";
+const TEST_ON_CLOUD = "NO";
 
-    $path = $matches[1];
-    $module = $matches[2];
-
-    if (empty($replaceMap[$path])) {
-        return $matches[0];
-    }
-
-    preg_match_all('/[A-Z][a-z]+/', $module, $modulePartsRaw);
-
-    if (!empty($modulePartsRaw[0])) {
-        $moduleParts = $modulePartsRaw[0];
-        $moduleName = implode('-', $moduleParts);
-    } else {
-        $moduleName = $module;
-    }
-
-    $modulePath = $replaceMap[$path] . strtolower($moduleName) . '/';
-
-    return  $modulePath;
-}
-
-$mode = 'git';
 $PWD = $_SERVER['PWD'];
-
 $diffA = $diffB = false;
 $script = $argv[0];
-
 $usageHelp = "Usage: \n"
-    . " php $script 2.1.6 MDVA-666 \n"
-    . " php $script 2.1.6 MDVA-666 -v2 \n"
-    . " php $script ./MAGETWO-66666.patch MDVA-666 \n"
-    . " php $script ./MAGETWO-66666.patch MDVA-666 -v2 \n";
+    . " php $script ACSD-6661 \n"
+    . " php $script ACSD-6661 _v2 \n"
+    . " php $script ACSD-6661 _DEBUG \n";
 
-if (empty($argv[1]) || empty($argv[2])) {
+if (empty($argv[1])) {
     exit($usageHelp);
 }
 
 $patchFile = $PWD . '/' . $argv[1];
+$patchVersion = (isset($argv[2])) ? $argv[2] : '';
+$newUrls = [];
+$urls = '';
 
-if (!preg_match('/\d+\.\d+\.\d+/', $argv[1]) && file_exists($patchFile)) {
-    $mode = 'file';
+// get ticket info from jira
+function getTicket($ticketId) {
+// cURL initialization
+    $ch = curl_init(JIRA_HOST.'/rest/api/2/issue/'.$ticketId);
+
+// Set cURL options
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+    curl_setopt($ch, CURLOPT_USERPWD, JIRA_USER.":".JIRA_PASS);
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+
+// Execute cURL request
+    $response = curl_exec($ch);
+
+// Check for errors
+    if (curl_errno($ch)) {
+        echo 'Curl error: ' . curl_error($ch);
+    }
+
+// Close cURL session
+    curl_close($ch);
+
+    return json_decode($response, true);
 }
 
-$version = !empty($argv[3]) && preg_match('/\d+/', $argv[3], $matches) ? (int)$matches[0] : 1;
+// get magento version from Jira ticket
+function getVersion($response) {
 
-if ($mode == 'git') {
-    $diffA = $argv[1];
-    $diffB = $argv[2];
+    return $response['fields']['versions'][0]['name'];
+}
 
-    exec("git checkout $diffA && cd ./magento2ee && git checkout $diffA");
-    exec("git checkout $diffB && cd ./magento2ee && git checkout $diffB");
-    $isBranchExistInCE = shell_exec("git branch | grep $diffB");
-    $isBranchExistInEE = shell_exec("cd ./magento2ee && git branch | grep $diffB");
+// get $urls of pull requests
 
-    $diffCE = $isBranchExistInCE ? shell_exec("git diff $diffA $diffB") : '';
-    $diffEE = $isBranchExistInEE ? shell_exec("cd ./magento2ee && git diff $diffA $diffB") : '';
-    $diff = $diffCE . $diffEE;
-    $patchName = "{$diffB}_EE_{$diffA}_v$version";
-} elseif ($mode == 'file') {
-    $diff = file_get_contents($patchFile);
-    $withoutPrefixPatterns = array(
-        '/(\+\+\+|\-\-\-)\s(app|lib)/'
-    );
+function getGitUrl($response) {
 
-    $diff = preg_replace_callback($withoutPrefixPatterns, function($matches){
-        $prefix = 'a/';
-        if ($matches[1] == '+++') {
-            $prefix = 'b/';
+    return $response['fields']['customfield_13904'];
+}
+
+// get project url
+function getProjectUrl($response) {
+
+    return $response['fields']['customfield_18505'];
+}
+
+// get project env type (stg/prd)
+function getProjectType($response) {
+    return $response['fields']['customfield_17502']['value'];
+}
+
+function convertToGitApi($pulls) {
+
+    preg_match_all('#(https://)(github.com)(/magento-sparta/)(.+?)(/pull)(/\d+)#', $pulls, $match);
+    foreach ($match[0] as $url) {
+        if($url && strlen($url) > 10){
+            echo $url . '       - included'. PHP_EOL;
+            $newUrl = preg_replace_callback('#(https://)(github.com)(/magento-sparta/)(.+?)(/pull)(/\d+)#', function($match) {
+                return $match[1] . 'api.' . $match[2] . '/repos' . $match[3] . $match[4] . $match[5] . 's' . $match[6];
+            }, $url);
+            $newUrls[] = $newUrl;
         }
-        return "{$matches[1]} {$prefix}{$matches[2]}";
-    }, $diff);
-    $diffB = $argv[2];
-    $patchName = "{$diffB}_EE_v$version";
+    }
+    return $newUrls;
 }
 
-if ($diff) {
-    $replaceMap = array(
-        'app/code/Magento/' => 'vendor/magento/module-',
-        'lib/internal/Magento/' => 'vendor/magento/',
-        'app/design/frontend/Magento/' => 'vendor/magento/theme-frontend-',
-        'app/design/adminhtml/Magento/' => 'vendor/magento/theme-adminhtml-'
-    );
-
-    $patterns = array(
-        '/(app\/code\/Magento\/)([A-Za-z]+)\//',
-        '/(lib\/internal\/Magento\/)([A-Za-z]+)\//',
-        '/(app\/design\/frontend\/Magento\/)([A-Za-z]+)\//',
-        '/(app\/design\/adminhtml\/Magento\/)([A-Za-z]+)\//',
-    );
-
-    $diffComposer = preg_replace_callback($patterns, 'replaceCallback', $diff);
-
-    $patchGitFilename = $patchName . '.patch';
-    $patchComposerFilename = $patchName . '.composer.patch';
-
-    file_put_contents('./' . $patchGitFilename, $diff);
-    file_put_contents('./' . $patchComposerFilename, $diffComposer);
-
-    echo "\n";
-    echo "######################################################################\n";
-    echo "# Patches $patchGitFilename and $patchComposerFilename are generated\n";
-    echo "######################################################################\n";
-} else {
-    echo "\n";
-    echo "######################################################################\n";
-    echo "# There is no available diff\n";
-    echo "######################################################################\n";
+function getPullRequestContent($pullRequests) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $pullRequests);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch,CURLOPT_HTTPHEADER, array(
+        "Accept: application/vnd.github.v3.diff",
+        "Authorization: Bearer " . GIT_TOKEN,
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+    ));
+    $result = curl_exec($ch);
+    curl_close($ch);
+    return $result;
 }
 
-//echo($diff);
+function sshUrl($projectPage, $projectType) {
+    if($projectPage) {
+        preg_match('#(https://)(\w+-\d)(\.magento.cloud)(/projects/)(\w+)#', $projectPage, $match);
+        return '1.ent-' . $match[5] . '-' . $projectType . '@ssh.' . $match[2] . '.magento.cloud';
+    }
+}
+
+// execute
+
+$response = getTicket($argv[1]);
+$patchGitFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".git.patch";
+$patchComposerFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".patch";
+
+if (strlen(getGitUrl($response)) > 10) {
+    $newUrls = convertToGitApi(getGitUrl($response));
+    foreach ($newUrls as $newUrl) {
+        file_put_contents($patchGitFilename, getPullRequestContent($newUrl), FILE_APPEND);
+    }
+}
+
+$patchComposer = shell_exec( "m2-convert-for-composer $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
+echo "Patch file:        -----------           " . $patchComposerFilename . "         ---------------            " .  PHP_EOL;
+
+if (TEST_ON_CLOUD === "YES") {
+    $sshLink = sshUrl(getProjectUrl($response), getProjectType($response));
+    echo ("Trying to apply the patch to:  $sshLink  ---  ".getProjectType($response)) . PHP_EOL;
+    $patchApplicable = shell_exec ("cloud-patchcheck $sshLink $patchComposerFilename");
+    echo $patchApplicable;
+}
