@@ -4,6 +4,7 @@
 ```sh
 git clone git@github.com:apoltoratskyi/m2patch.git m2patch
 cd m2patch
+open file and configure you creds to jira and github api token
 chmod +x m2patch.php
 ln -s ./m2patch.php ../m2patch.php
 ```
