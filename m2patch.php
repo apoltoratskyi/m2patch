@@ -1,20 +1,20 @@
 #!/usr/bin/env php
 <?php
-use Dotenv\Dotenv;
-use JiraRestApi\Issue\IssueService;
-use JiraRestApi\JiraException;
 
 define('BASE_PATH',realpath(__DIR__));
-require __DIR__ . '/vendor/autoload.php';
-$dotEnv = Dotenv::createUnsafeImmutable(BASE_PATH);
-$dotEnv->load();
+
+const GIT_TOKEN ="";
+const JIRA_HOST="";
+const JIRA_USER="";
+const JIRA_PASS="";
 
 $PWD = $_SERVER['PWD'];
 $diffA = $diffB = false;
 $script = $argv[0];
 $usageHelp = "Usage: \n"
-    . " php $script ACSD-666 \n"
-    . " php $script ACSD-666 -v2 \n";
+    . " php $script ACSD-6661 \n"
+    . " php $script ACSD-6661 _v2 \n"
+    . " php $script ACSD-6661 _DEBUG \n";
 
 if (empty($argv[1])) {
     exit($usageHelp);
@@ -25,59 +25,54 @@ $patchVersion = (isset($argv[2])) ? $argv[2] : '';
 $newUrls = [];
 $urls = '';
 
-try {
-    $issueService = new IssueService();
+// get ticket info from jira
+function getTicket($ticketId) {
+// cURL initialization
+    $ch = curl_init(JIRA_HOST.'/rest/api/2/issue/'.$ticketId);
 
-    $queryParam = [
-        'fields' => [  // default: '*all'
-            'customfield_18505',
-            'customfield_17502',
-            'customfield_13904',
-            'versions'
-        ],
-        'expand' => [
-            'renderedFields',
-            'names',
-            'schema',
-            'transitions',
-            'operations',
-            'editmeta',
-            'changelog',
-        ]
-    ];
+// Set cURL options
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+    curl_setopt($ch, CURLOPT_USERPWD, JIRA_USER.":".JIRA_PASS);
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 
-    $issue = $issueService->get($argv[1], $queryParam);
-    $magentoVersion = $issue->fields->versions[0]->name;
-    $urls = $issue->fields->customfield_13904;
-    $projectPage = $issue->fields->customfield_18505;
-    $projectType = strtolower($issue->fields->customfield_17502->value);
-    if ($projectType != "production") {
-        $projectType = "staging-5em2ouy";
-    } else {
-        $projectType = $projectType . "-vohbr3y";
+// Execute cURL request
+    $response = curl_exec($ch);
+
+// Check for errors
+    if (curl_errno($ch)) {
+        echo 'Curl error: ' . curl_error($ch);
     }
 
-} catch (JiraRestApi\JiraException $e) {
-    print('Error Occured! ' . $e->getMessage());
+// Close cURL session
+    curl_close($ch);
+
+    return json_decode($response, true);
 }
 
-$patchGitFilename = $argv[1] . "_" . $magentoVersion . $patchVersion . ".git.patch";
-$patchComposerFilename = $argv[1] . "_" . $magentoVersion . $patchVersion . ".patch";
+// get magento version from Jira ticket
+function getVersion($response) {
 
-if (strlen($urls) > 10) {
-    $newUrls = convertToGitApi($urls);
-    foreach ($newUrls as $newUrl) {
-        file_put_contents($patchGitFilename, getPullRequestContent($newUrl), FILE_APPEND);
-    }
+    return $response['fields']['versions'][0]['name'];
 }
 
-$patchComposer = shell_exec( "convert-for-composer.php $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
-echo "Patch file:        -----------           " . $patchComposerFilename . "         ---------------            " .  PHP_EOL;
+// get $urls of pull requests
 
-$sshLink = sshUrl($projectPage, $projectType);
-echo ("Trying to apply the patch to:  $sshLink  ---  $projectType") . PHP_EOL;
-$patchApplicable = shell_exec ("cloud-patchcheck $sshLink $patchComposerFilename");
-echo $patchApplicable;
+function getGitUrl($response) {
+
+    return $response['fields']['customfield_13904'];
+}
+
+// get project url
+function getProjectUrl($response) {
+
+    return $response['fields']['customfield_18505'];
+}
+
+// get project env type (stg/prd)
+function getProjectType($response) {
+    return $response['fields']['customfield_17502']['value'];
+}
 
 function convertToGitApi($pulls) {
 
@@ -100,7 +95,7 @@ function getPullRequestContent($pullRequests) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch,CURLOPT_HTTPHEADER, array(
         "Accept: application/vnd.github.v3.diff",
-        "Authorization: Bearer " . $_ENV['GITHUB_USER_TOKEN'],
+        "Authorization: Bearer " . GIT_TOKEN,
         "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
     ));
     $result = curl_exec($ch);
@@ -113,4 +108,29 @@ function sshUrl($projectPage, $projectType) {
         preg_match('#(https://)(\w+-\d)(\.magento.cloud)(/projects/)(\w+)#', $projectPage, $match);
         return '1.ent-' . $match[5] . '-' . $projectType . '@ssh.' . $match[2] . '.magento.cloud';
     }
+}
+
+// execute
+
+$response = getTicket($argv[1]);
+$patchGitFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".git.patch";
+$patchComposerFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".patch";
+
+if (strlen(getGitUrl($response)) > 10) {
+    $newUrls = convertToGitApi(getGitUrl($response));
+    foreach ($newUrls as $newUrl) {
+        file_put_contents($patchGitFilename, getPullRequestContent($newUrl), FILE_APPEND);
+    }
+}
+
+$patchComposer = shell_exec( "m2-convert-for-composer $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
+echo "Patch file:        -----------           " . $patchComposerFilename . "         ---------------            " .  PHP_EOL;
+if ($argv[3] && $argv[3] == "apply") {
+    shell_exec ("patch -p1 < $patchComposerFilename --dry-run");
+}
+if ($argv[4] && $argv[4] == "cloud") {
+    $sshLink = sshUrl(getProjectUrl($response), getProjectType($response));
+    echo ("Trying to apply the patch to:  $sshLink  ---  ".getProjectType($response)) . PHP_EOL;
+    $patchApplicable = shell_exec ("cloud-patchcheck $sshLink $patchComposerFilename");
+    echo $patchApplicable;
 }
