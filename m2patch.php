@@ -15,8 +15,9 @@ $gitPullRequestField = 'customfield_13904';
 $projectPageField = 'customfield_18505';
 $environmentTypeField = 'customfield_17502';
 $gitRepo = 'magento-sparta';
-$pathToConverterForComposer = 'm2-convert-for-composer';
+$pathToConverterForComposer = $envVariables['CONVERTER'];
 $testOnCloud = $envVariables['TEST_ON_CLOUD'];
+$pathToCloudPatchCheck = $envVariables['CLOUD_PATCHCHECK'];
 
 $PWD = $_SERVER['PWD'];
 $script = $argv[0];
@@ -172,6 +173,6 @@ if ($testOnCloud && $return_var == 0) {
     }
     $sshLink = sshUrl(getProjectUrl($response, $projectPageField), getProjectType($response, $environmentTypeField));
     echo ("Trying to apply the patch to:  $sshLink  ---  ".getProjectType($response, $environmentTypeField)) . PHP_EOL;
-    $patchApplicable = shell_exec ("cloud-patchcheck $sshLink $patchComposerFilename");
+    $patchApplicable = shell_exec ("$pathToCloudPatchCheck $sshLink $patchComposerFilename");
     echo $patchApplicable;
 }
