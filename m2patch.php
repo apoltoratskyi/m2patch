@@ -16,6 +16,7 @@ $projectPageField = 'customfield_18505';
 $environmentTypeField = 'customfield_17502';
 $gitRepo = 'magento-sparta';
 $pathToConverterForComposer = 'm2-convert-for-composer';
+$testOnCloud = $envVariables['TEST_ON_CLOUD'];
 
 $PWD = $_SERVER['PWD'];
 $script = $argv[0];
@@ -35,6 +36,7 @@ $urls = '';
 // get ticket info from jira
 function getTicket($ticketId, $envVariables) {
 // cURL initialization
+
     $ch = curl_init($envVariables['JIRA_HOST'].'/rest/api/2/issue/'.$ticketId);
 
 // Set cURL options
@@ -48,7 +50,7 @@ function getTicket($ticketId, $envVariables) {
 
 // Check for errors
     if (curl_errno($ch)) {
-        echo 'Curl error: ' . curl_error($ch);
+        throw new Exception(curl_error($ch));
     }
 
 // Close cURL session
@@ -60,24 +62,37 @@ function getTicket($ticketId, $envVariables) {
 // get magento version from Jira ticket
 function getVersion($response) {
 
+    if (empty($response['fields']['versions'][0]['name'])) {
+        throw new Exception("Magento Version Not Set");
+    }
+
     return $response['fields']['versions'][0]['name'];
 }
 
 // get $urls of pull requests
 
 function getGitUrl($response, $gitPullRequestField) {
+    if (empty($response['fields'][$gitPullRequestField])) {
+        throw new Exception("GitPull URLs not set");
+    }
 
     return $response['fields'][$gitPullRequestField];
 }
 
 // get project url
 function getProjectUrl($response, $projectPageField) {
+    if (empty($response['fields'][$projectPageField])) {
+        throw new Exception("Project URL Not Set");
+    }
 
     return $response['fields'][$projectPageField];
 }
 
 // get project env type (stg/prd)
 function getProjectType($response, $environmentTypeField) {
+    if (empty($response['fields'][$environmentTypeField]['value'])) {
+        throw new Exception("Project Type Not Set");
+    }
     return strtolower($response['fields'][$environmentTypeField]['value']);
 }
 
@@ -95,6 +110,8 @@ function convertToGitApi($pulls, $gitRepo) {
     }
     return $newUrls;
 }
+
+// use try catch to handle curl errors
 
 function getPullRequestContent($pullRequests, $envVariables) {
     $ch = curl_init();
@@ -118,25 +135,37 @@ function sshUrl($projectPage, $projectType) {
     }
 }
 
-// execute
-$response = getTicket($argv[1], $envVariables);
-$patchGitFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".git.patch";
-$patchComposerFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".patch";
+// execute in try catch
 
-if (strlen(getGitUrl($response,$gitPullRequestField)) > 10) {
-    $newUrls = convertToGitApi(getGitUrl($response, $gitPullRequestField), $gitRepo);
-    foreach ($newUrls as $newUrl) {
-        file_put_contents($patchGitFilename, getPullRequestContent($newUrl, $envVariables), FILE_APPEND);
+try {
+    $response = getTicket($argv[1], $envVariables);
+    $patchGitFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".git.patch";
+    $patchComposerFilename = $argv[1] . "_" . getVersion($response) . $patchVersion . ".patch";
+
+    if (strlen(getGitUrl($response,$gitPullRequestField)) > 10) {
+        $newUrls = convertToGitApi(getGitUrl($response, $gitPullRequestField), $gitRepo);
+        foreach ($newUrls as $newUrl) {
+            file_put_contents($patchGitFilename, getPullRequestContent($newUrl, $envVariables), FILE_APPEND);
+        }
     }
+} catch (Exception $e) {
+    echo $e->getMessage();
+    exit(1);
 }
 
-$patchComposer = shell_exec( "$pathToConverterForComposer $patchGitFilename > $patchComposerFilename && rm $patchGitFilename");
-echo "Patch file:        -----------           " . $patchComposerFilename . "         ---------------            " .  PHP_EOL;
+exec("$pathToConverterForComposer $patchGitFilename > $patchComposerFilename", $output, $return_var);
+shell_exec( "rm $patchGitFilename");
+
+if ($return_var == 0){
+    echo "Patch file:        -----------           " . $patchComposerFilename . "         ---------------            " .  PHP_EOL;
+} else {
+    shell_exec( "rm $patchComposerFilename");
+}
 
 //$patchComposer = shell_exec( "patch -p1 < $patchComposerFilename --dry-run");
 //echo $patchComposer;
 
-if ($envVariables['TEST_ON_CLOUD']) {
+if ($testOnCloud && $return_var == 0) {
     if (empty(getProjectUrl($response, $projectPageField))) {
         echo "Check patch on cloud FAILED.\n No project page found in Jira ticket. Please add it to the ticket if this is cloud merchant and try again.";
         exit(1);
