@@ -130,8 +130,8 @@ function getPullRequestContent($pullRequests, $envVariables) {
 
 function sshUrl($projectPage, $projectType) {
     if($projectPage) {
-        preg_match('#(https://)(\w+-\d)(\.magento.cloud)(/projects/)(\w+)#', $projectPage, $match);
-        $fullSshLink = shell_exec("magento-cloud ssh -p $match[5] -e $projectType --pipe");
+        preg_match('#(?<=projects/)(\w+)(?=/)?#', $projectPage, $match);
+        $fullSshLink = shell_exec("magento-cloud ssh -p $match[0] -e $projectType --pipe");
         return $fullSshLink;
     }
 }
