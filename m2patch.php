@@ -138,7 +138,7 @@ function sshUrl($projectPage, $projectType) {
         if(isset($match[0])) {
             $fullSshLink = shell_exec("magento-cloud ssh -p $match[0] -e $projectType --pipe");
         } else {
-            echo("Project URL is not valid");
+            echo("Project URL is not valid. Cannot validate patch on cloud.") . PHP_EOL;
             return null;
         }
         return $fullSshLink;
