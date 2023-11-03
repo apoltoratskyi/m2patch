@@ -91,10 +91,13 @@ function getProjectUrl($response, $projectPageField) {
 
 // get project env type (stg/prd)
 function getProjectType($response, $environmentTypeField) {
-    if (empty($response['fields'][$environmentTypeField]['value'])) {
-        throw new Exception("Project Type Not Set");
+    $projectType = preg_match('/(prd|prod|production)/i', $response['fields'][$environmentTypeField]['value']);
+    if (!$projectType) {
+        echo ("Project Type Not found. Using staging as default") . PHP_EOL;
+        return 'staging';
+    } else {
+        return 'production';
     }
-    return strtolower($response['fields'][$environmentTypeField]['value']);
 }
 
 function convertToGitApi($pulls, $gitRepo) {
@@ -129,9 +132,15 @@ function getPullRequestContent($pullRequests, $envVariables) {
 }
 
 function sshUrl($projectPage, $projectType) {
+
     if($projectPage) {
         preg_match('#(?<=projects/)(\w+)(?=/)?#', $projectPage, $match);
-        $fullSshLink = shell_exec("magento-cloud ssh -p $match[0] -e $projectType --pipe");
+        if(isset($match[0])) {
+            $fullSshLink = shell_exec("magento-cloud ssh -p $match[0] -e $projectType --pipe");
+        } else {
+            echo("Project URL is not valid");
+            return null;
+        }
         return $fullSshLink;
     }
 }
@@ -167,12 +176,16 @@ if ($return_var == 0){
 //echo $patchComposer;
 
 if ($testOnCloud && $return_var == 0) {
-    if (empty(getProjectUrl($response, $projectPageField))) {
-        echo "Check patch on cloud FAILED.\n No project page found in Jira ticket. Please add it to the ticket if this is cloud merchant and try again.";
+    try{
+        $sshLink = sshUrl(getProjectUrl($response, $projectPageField), getProjectType($response, $environmentTypeField));
+    }
+    catch (Exception $e) {
+        echo $e->getMessage();
         exit(1);
     }
-    $sshLink = sshUrl(getProjectUrl($response, $projectPageField), getProjectType($response, $environmentTypeField));
-    echo ("Trying to apply the patch to:  $sshLink  ---  ".getProjectType($response, $environmentTypeField)) . PHP_EOL;
-    $patchApplicable = shell_exec ("$pathToCloudPatchCheck $sshLink $patchComposerFilename");
-    echo $patchApplicable;
+    if ($sshLink){
+        echo ("Trying to apply the patch to:  $sshLink  ---  ".getProjectType($response, $environmentTypeField)) . PHP_EOL;
+        $patchApplicable = shell_exec ("$pathToCloudPatchCheck $sshLink $patchComposerFilename");
+        echo $patchApplicable;
+    }
 }
