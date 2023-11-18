@@ -51,7 +51,16 @@ function getTicket($ticketId, $envVariables) {
 
 // Check for errors
     if (curl_errno($ch)) {
-        throw new Exception(curl_error($ch));
+        // Handle specific error code for unreachable host (cURL error 7)
+        $errorNo = curl_errno($ch);
+        if ($errorNo === 60) {
+            throw new Exception("VPN is not connected. Please connect to VPN and try again.");
+        }
+        if ($errorNo === 7 || $errorNo === 67 || $errorNo === 6) {
+            throw new Exception("Jira server is unreachable. Check your network connection or Jira configuration.");
+        } else {
+            throw new Exception(curl_error($ch));
+        }
     }
 
 // Close cURL session
